@@ -1,0 +1,33 @@
+[Unit]
+Description=Cije VPS Installer web UI (cije-vpsinstallerweb)
+Documentation=file:///opt/cije-vpsinstallerweb/README.md
+After=network-online.target
+Wants=network-online.target
+
+# This unit is an example. Do not enable it until you have set CIJE_WEB_TOKEN
+# and decided whether the process may touch the live system. Leave it disabled
+# (`systemctl disable`) unless you intend to use the web UI on this VPS.
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/cije-vpsinstallerweb
+Environment=CIJE_WEB_TOKEN=change-me
+Environment=CIJE_WEB_HOST=127.0.0.1
+Environment=CIJE_WEB_PORT=18765
+Environment=CIJE_WEB_DATA=/var/lib/cije-vpsinstallerweb
+Environment=CIJE_WEB_DRY_RUN=1
+Environment=CIJE_WEB_ALLOW_LIVE=0
+# Live installs (target Debian VPS only):
+# Environment=CIJE_WEB_ALLOW_LIVE=1
+# Environment=CIJE_WEB_DRY_RUN=0
+# Environment=CIJE_WEB_ROOT=/
+ExecStart=/opt/cije-vpsinstallerweb/.venv/bin/python -m cije_vpsinstallerweb
+Restart=on-failure
+RestartSec=5
+
+# The UI binds localhost by default. Put TLS on a reverse proxy (nginx/caddy)
+# and do not publish port 18765 on a public interface.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}DNS helper{% endblock %}
+{% block heading %}DNS helper{% endblock %}
+{% block lede %}Records from debian_vps_setup.dns for the saved domain. Let's Encrypt and inbound mail need these.{% endblock %}
+{% block content %}
+<section class="card">
+  <p>Detected IP hint: <code>{{ dns.ip or "not detected" }}</code>. Set the VPS PTR / reverse DNS in InterServer to the hostname.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Name</th><th>Value</th></tr></thead>
+      <tbody>
+        {% for rec in dns.records %}
+          <tr><td>{{ rec.type }}</td><td>{{ rec.name }}</td><td><code>{{ rec.value }}</code></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="card">
+  <h2>CLI text</h2>
+  <pre class="log">{{ dns.text }}</pre>
+</section>
+{% endblock %}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · cije-vpsinstallerweb</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="login-body">
+  <main class="login-card">
+    <div class="mark lg">CIJE</div>
+    <h1>Cije VPS Installer</h1>
+    <p class="lede">Web UI for the same jobs as the CLI. Sign in with the shared token from <code>CIJE_WEB_TOKEN</code>.</p>
+    {% if error %}
+      <p class="flash error">{{ error }}</p>
+    {% endif %}
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next_path }}">
+      <label>
+        Shared token
+        <input type="password" name="token" autocomplete="current-password" required autofocus>
+      </label>
+      <button type="submit" class="primary">Open installer</button>
+    </form>
+    <p class="hint">Bind this service to localhost and put TLS on a reverse proxy. Do not expose it to the internet without that.</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Setup wizard{% endblock %}
+{% block heading %}Setup wizard{% endblock %}
+{% block lede %}Same questions as the CLI wizard. Saved as JSON, then handed to debian_vps_setup.{% endblock %}
+{% block content %}
+<form id="wizard" class="wizard">
+  <section class="card">
+    <h2>1. Server identity</h2>
+    <div class="fields">
+      <label>Domain
+        <input name="domain" value="{{ config.domain }}" placeholder="example.com" required>
+      </label>
+      <label>Hostname
+        <input name="hostname" value="{{ config.hostname }}" placeholder="server.example.com">
+      </label>
+      <label>Admin email
+        <input name="admin_email" value="{{ config.admin_email }}" type="email">
+      </label>
+      <label>Admin password
+        <input name="admin_password" value="{{ config.admin_password }}" autocomplete="new-password">
+      </label>
+      <label>Timezone
+        <input name="timezone" value="{{ config.timezone }}">
+      </label>
+      <label>Site unix user
+        <input name="site_user" value="{{ config.site_user }}" placeholder="from domain label">
+      </label>
+      <label class="check">
+        <input type="checkbox" name="grant_sudo" {% if config.grant_sudo %}checked{% endif %}>
+        Grant sudo to the site user
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Control panel &amp; web</h2>
+    <p class="hint">Choose one panel. Do not install both on the same VPS.</p>
+    <div class="fields">
+      <label>Control panel
+        <select name="control_panel">
+          {% for name in choices.control_panels %}
+            <option value="{{ name }}" {% if config.control_panel == name %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Web stack
+        <select name="web_bundle">
+          {% for name in choices.web_bundles %}
+            <option value="{{ name }}" {% if config.web_bundle == name %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Webmail
+        <select name="webmail">
+          {% for name in choices.webmail %}
+            <option value="{{ name }}" {% if config.webmail == name %}selected{% endif %}>{{ name }} — {{ choices.webmail_labels[name] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="fields" id="onepanel-fields">
+      <label>1Panel port
+        <input name="onepanel_port" type="number" value="{{ config.onepanel.port }}">
+      </label>
+      <label>1Panel username
+        <input name="onepanel_username" value="{{ config.onepanel.username }}">
+      </label>
+      <label>1Panel password
+        <input name="onepanel_password" value="{{ config.onepanel.password }}">
+      </label>
+      <label>Security entrance
+        <input name="onepanel_entrance" value="{{ config.onepanel.entrance }}">
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. Mailbaby outbound relay</h2>
+    <p class="hint">Leave username blank to skip Mailbaby and send mail from this VPS.</p>
+    <div class="fields">
+      <label>Host
+        <input name="mailbaby_host" value="{{ config.mailbaby.host }}">
+      </label>
+      <label>Port
+        <input name="mailbaby_port" type="number" value="{{ config.mailbaby.port }}">
+      </label>
+      <label>Username
+        <input name="mailbaby_username" value="{{ config.mailbaby.username }}">
+      </label>
+      <label>Password
+        <input name="mailbaby_password" value="{{ config.mailbaby.password }}" autocomplete="off">
+      </label>
+      <label>Send a test message to
+        <input name="send_test_mail_to" value="{{ config.send_test_mail_to }}" placeholder="optional">
+      </label>
+      <label class="check">
+        <input type="checkbox" name="create_admin_mailbox" {% if config.create_admin_mailbox %}checked{% endif %}>
+        Create admin@domain mailbox
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>4. Desktop (InterServer VNC) and TLS</h2>
+    <div class="fields">
+      <label class="check">
+        <input type="checkbox" name="vnc_enabled" {% if config.vnc.enabled %}checked{% endif %}>
+        Enable XFCE + TigerVNC
+      </label>
+      <label>VNC password
+        <input name="vnc_password" value="{{ config.vnc.password }}" maxlength="8">
+      </label>
+      <label>Display
+        <input name="vnc_display" type="number" min="1" max="20" value="{{ config.vnc.display }}">
+      </label>
+      <label>Geometry
+        <input name="vnc_geometry" value="{{ config.vnc.geometry }}">
+      </label>
+      <label class="check">
+        <input type="checkbox" name="vnc_bind_localhost" {% if config.vnc.bind_localhost %}checked{% endif %}>
+        Bind VNC to localhost only
+      </label>
+      <label class="check">
+        <input type="checkbox" name="ssl_enabled" {% if config.ssl.enabled %}checked{% endif %}>
+        Request Let's Encrypt certificates
+      </label>
+      <label class="check">
+        <input type="checkbox" name="ssl_staging" {% if config.ssl.staging %}checked{% endif %}>
+        Use Let's Encrypt staging
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>5. Save and run</h2>
+    <p class="hint">Validation uses <code>SetupConfig.validate()</code> from the vendored CLI. Install calls the same pipeline as <code>cije-vps-installer run</code>.</p>
+    <div id="wizard-errors" class="flash error hidden"></div>
+    <div class="row">
+      <button type="button" class="primary" id="save-config">Save config</button>
+      <button type="button" class="primary" id="save-run">Save and start / resume</button>
+      <label class="check">
+        <input type="checkbox" id="force-rerun"> Force re-run completed steps
+      </label>
+    </div>
+  </section>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  const form = document.getElementById("wizard");
+  const panel = form.control_panel;
+  const onepanel = document.getElementById("onepanel-fields");
+  const webmail = form.webmail;
+  function syncPanel() {
+    const one = panel.value === "1panel";
+    onepanel.classList.toggle("hidden", !one);
+    for (const opt of webmail.options) {
+      if (opt.value === "usermin") opt.disabled = one;
+    }
+    if (one && webmail.value === "usermin") webmail.value = "roundcube";
+  }
+  panel.addEventListener("change", syncPanel);
+  syncPanel();
+
+  function collect() {
+    const g = (n) => form[n]?.value ?? "";
+    const c = (n) => !!form[n]?.checked;
+    return {
+      domain: g("domain"),
+      hostname: g("hostname"),
+      admin_email: g("admin_email"),
+      admin_password: g("admin_password"),
+      timezone: g("timezone"),
+      site_user: g("site_user"),
+      grant_sudo: c("grant_sudo"),
+      control_panel: g("control_panel"),
+      web_bundle: g("web_bundle"),
+      webmail: g("webmail"),
+      create_admin_mailbox: c("create_admin_mailbox"),
+      send_test_mail_to: g("send_test_mail_to"),
+      mailbaby: {
+        host: g("mailbaby_host"),
+        port: Number(g("mailbaby_port") || 25),
+        username: g("mailbaby_username"),
+        password: g("mailbaby_password"),
+      },
+      vnc: {
+        enabled: c("vnc_enabled"),
+        password: g("vnc_password"),
+        display: Number(g("vnc_display") || 1),
+        geometry: g("vnc_geometry"),
+        bind_localhost: c("vnc_bind_localhost"),
+      },
+      ssl: { enabled: c("ssl_enabled"), staging: c("ssl_staging") },
+      onepanel: {
+        port: Number(g("onepanel_port") || 8888),
+        username: g("onepanel_username"),
+        password: g("onepanel_password"),
+        entrance: g("onepanel_entrance"),
+        install_dir: "/opt",
+      },
+    };
+  }
+
+  const errors = document.getElementById("wizard-errors");
+  async function save(start) {
+    errors.classList.add("hidden");
+    const payload = collect();
+    const saved = await Cije.api("/api/config", { method: "PUT", body: payload });
+    if (!saved.body.ok) {
+      errors.textContent = (saved.body.problems || ["Could not save config"]).join("\\n");
+      errors.classList.remove("hidden");
+      return;
+    }
+    if (!start) {
+      Cije.flash("Config saved.");
+      return;
+    }
+    const res = await Cije.api("/api/install", {
+      method: "POST",
+      body: { force: document.getElementById("force-rerun").checked },
+    });
+    if (!res.body.ok) {
+      errors.textContent = res.body.detail || (res.body.problems || ["Install did not start"]).join("\\n");
+      errors.classList.remove("hidden");
+      return;
+    }
+    location.href = "/logs?job=" + res.body.job.id;
+  }
+  document.getElementById("save-config").addEventListener("click", () => save(false));
+  document.getElementById("save-run").addEventListener("click", () => save(true));
+</script>
+{% endblock %}

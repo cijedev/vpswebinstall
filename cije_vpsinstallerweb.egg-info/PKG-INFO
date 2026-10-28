@@ -1,0 +1,167 @@
+Metadata-Version: 2.4
+Name: cije-vpsinstallerweb
+Version: 0.1.0
+Summary: Web UI for the Cije VPS Installer (vendored debian_vps_setup).
+Author: Cije
+License: MIT
+Keywords: cije,vps,installer,webmin,virtualmin,1panel
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.32
+Requires-Dist: jinja2>=3.1
+Requires-Dist: python-multipart>=0.0.9
+Provides-Extra: dev
+Requires-Dist: httpx>=0.27; extra == "dev"
+Dynamic: license-file
+
+cije-vpsinstallerweb
+====================
+
+Browser UI for the **Cije VPS Installer**. This repository is a separate
+application from the CLI (`cije-vps-installer` / `debian_vps_setup`). It does
+not replace that project.
+
+The web layer saves a JSON config, then calls the vendored CLI package for
+setup, resume, status, DNS help, per-component troubleshoot, and config
+snapshots. Install logic lives in `vendor/debian_vps_setup` (`import
+debian_vps_setup`).
+
+**This UI must run on the target Debian VPS when you want a real install.** It
+is not a remote provisioner. By default it only dry-runs against a fake
+`--root` so a laptop or CI job cannot `apt`/`systemctl` a live machine.
+
+Safety
+------
+
+- Default mode is **dry-run** with `CIJE_WEB_ROOT` under the data directory.
+- Live mode requires **all** of: `CIJE_WEB_ALLOW_LIVE=1`, `CIJE_WEB_DRY_RUN=0`,
+  and `CIJE_WEB_ROOT=/`.
+- Do not run live mode on a workstation, a shared host, or an already-configured
+  production server. Use a fresh Debian 12/13 VPS, as the CLI README states.
+- Bind the HTTP server to **localhost** and put TLS on a reverse proxy. The
+  shared token is not a substitute for HTTPS on a public address.
+- Config JSON and install reports contain passwords. Files are written mode 600
+  when the OS allows it.
+
+Requirements
+------------
+
+- Python 3.11+
+- The vendored `debian_vps_setup` tree (shipped in this repo)
+- For a **real** install: root on the VPS, same hardware/OS needs as the CLI
+
+Quick start (local / safe)
+--------------------------
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev]'
+export CIJE_WEB_TOKEN=dev-token
+python -m cije_vpsinstallerweb --host 127.0.0.1 --port 18765
+```
+
+Open `http://127.0.0.1:18765/login` and sign in with `dev-token`.
+
+You should see a dashboard and a setup wizard (domain, panel, webmail including
+Roundcube / Usermin / SnappyMail / Cypht, Mailbaby, SSL, VNC). Starting an
+install in this mode streams dry-run logs; it will not install packages.
+
+Environment
+-----------
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `CIJE_WEB_TOKEN` | generated at startup | Shared secret (cookie, `Authorization: Bearer`, or `X-API-Token`) |
+| `CIJE_WEB_HOST` | `127.0.0.1` | Bind address |
+| `CIJE_WEB_PORT` | `18765` | Bind port |
+| `CIJE_WEB_DATA` | `./data` | Web config + logs |
+| `CIJE_WEB_ROOT` | `$CIJE_WEB_DATA/fake-root` | Filesystem root passed to `Runner` |
+| `CIJE_WEB_DRY_RUN` | `1` | Pass `dry_run=True` into the CLI runner |
+| `CIJE_WEB_ALLOW_LIVE` | `0` | Must be `1` before a live root is accepted |
+
+If `CIJE_WEB_TOKEN` is unset, the process prints a one-time token. Set the
+variable for anything that should survive a restart.
+
+Reverse proxy (TLS)
+-------------------
+
+Keep uvicorn on loopback. Example nginx snippet:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name installer.example.com;
+    # ssl_certificate ...;
+    location / {
+        proxy_pass http://127.0.0.1:18765;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_buffering off;
+        proxy_read_timeout 3600;
+    }
+}
+```
+
+Terminate TLS here. Do not forward the app port to the public internet.
+
+systemd
+-------
+
+An **example** unit lives at `contrib/systemd/cije-vpsinstallerweb.service`.
+It is documentation only: copy it, set `CIJE_WEB_TOKEN`, and leave it
+**disabled** until you intend to run the UI on that VPS.
+
+```bash
+sudo cp contrib/systemd/cije-vpsinstallerweb.service /etc/systemd/system/
+sudo systemctl daemon-reload
+# sudo systemctl enable --now cije-vpsinstallerweb   # only after editing the unit
+```
+
+Pages and API
+-------------
+
+| UI | JSON |
+|----|------|
+| `/` dashboard | `GET /api/health` (no auth), `GET /api/meta` |
+| `/wizard` | `GET/PUT /api/config` |
+| `/logs` | `POST /api/install`, `GET /api/jobs/{id}/stream` (SSE) |
+| `/status` | `GET /api/status`, `GET /api/report`, `POST /api/test` |
+| `/dns` | `GET /api/dns` |
+| `/troubleshoot` | `POST /api/troubleshoot` |
+| `/backup` | `GET/POST /api/backup`, `POST /api/backup/{id}/restore` |
+
+Auth: `X-API-Token`, `Authorization: Bearer …`, `?token=` (SSE), or the login
+cookie.
+
+What the web layer does **not** do
+----------------------------------
+
+- Rewrite Virtualmin / 1Panel / Postfix / webmail installers
+- Image the disk or restore mailboxes / uploaded site files
+- Talk to a remote VPS over SSH; run it **on** the machine you are building
+
+Tests
+-----
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+These hit the FastAPI app with a fake `--root` and dry-run jobs. They do not
+need root and they must not run `apt` on the host.
+
+Vendor
+------
+
+`vendor/debian_vps_setup` is a copy of the CLI package (v1.1.0). Refresh it
+from the CLI repository when that package changes. Keep this repo named
+**cije-vpsinstallerweb**.
+
+License
+-------
+
+MIT

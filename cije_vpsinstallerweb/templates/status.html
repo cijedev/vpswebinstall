@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Status{% endblock %}
+{% block heading %}Status &amp; last report{% endblock %}
+{% block lede %}Completed pipeline steps from InstallState, plus the last /root/vps-setup-report.txt.{% endblock %}
+{% block content %}
+<section class="grid two">
+  <article class="card">
+    <h2>Progress</h2>
+    <dl class="kv">
+      <div><dt>Started</dt><dd>{{ status.started_at or "never" }}</dd></div>
+      <div><dt>Updated</dt><dd>{{ status.updated_at or "—" }}</dd></div>
+      <div><dt>Finished</dt><dd>{{ status.finished_at or "no" }}</dd></div>
+    </dl>
+    <ul class="chips">
+      {% for step in status.steps %}
+        <li class="{% if step in status.completed %}ok{% endif %}">{{ step }}</li>
+      {% endfor %}
+    </ul>
+    <div class="row">
+      <button class="primary" data-action="test">Re-test stack</button>
+      <button data-action="install">Resume install</button>
+    </div>
+  </article>
+  <article class="card">
+    <h2>Saved identity</h2>
+    <dl class="kv">
+      <div><dt>Domain</dt><dd>{{ public.domain }}</dd></div>
+      <div><dt>Panel</dt><dd>{{ public.control_panel }}</dd></div>
+      <div><dt>Webmail</dt><dd>{{ public.webmail }}</dd></div>
+      <div><dt>Site user</dt><dd>{{ public.site_user }}</dd></div>
+    </dl>
+    <p class="hint">Passwords are redacted here. The wizard and the on-disk report still hold the real values (mode 600).</p>
+  </article>
+</section>
+<section class="card">
+  <h2>Last report</h2>
+  {% if status.has_report %}
+    <p class="hint">{{ status.report_path }}</p>
+    <pre class="log">{{ status.report }}</pre>
+  {% else %}
+    <p class="empty">No report yet. A dry-run install writes a report under the fake root when the pipeline finishes.</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelector("[data-action=test]")?.addEventListener("click", async () => {
+    const res = await Cije.api("/api/test", { method: "POST", body: {} });
+    if (!res.body.ok) return Cije.flash(res.body.detail || (res.body.problems || ["failed"]).join("\\n"));
+    location.href = "/logs?job=" + res.body.job.id;
+  });
+  document.querySelector("[data-action=install]")?.addEventListener("click", async () => {
+    const res = await Cije.api("/api/install", { method: "POST", body: {} });
+    if (!res.body.ok) return Cije.flash(res.body.detail || (res.body.problems || ["failed"]).join("\\n"));
+    location.href = "/logs?job=" + res.body.job.id;
+  });
+</script>
+{% endblock %}

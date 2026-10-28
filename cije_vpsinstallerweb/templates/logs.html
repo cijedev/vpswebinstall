@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Live logs{% endblock %}
+{% block heading %}Live logs{% endblock %}
+{% block lede %}Stdout from the background job, including debian_vps_setup dry-run lines.{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="row spread">
+    <p id="job-meta">
+      {% if job %}
+        Job <code>{{ job.id }}</code> · {{ job.kind }} · <span id="job-status">{{ job.status }}</span>
+      {% else %}
+        No job yet. Start one from the wizard or dashboard.
+      {% endif %}
+    </p>
+    <a href="/status">Status &amp; report</a>
+  </div>
+  <pre class="log" id="log">{{ (job.lines | join('\n')) if job else 'Waiting for a job…' }}</pre>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const jobId = new URLSearchParams(location.search).get("job") || {% if job %}"{{ job.id }}"{% else %}null{% endif %};
+  if (jobId) Cije.streamJob(jobId, document.getElementById("log"), document.getElementById("job-status"));
+</script>
+{% endblock %}

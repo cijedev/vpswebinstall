@@ -1,0 +1,2 @@
+[console_scripts]
+cije-vpsinstallerweb = cije_vpsinstallerweb.__main__:main

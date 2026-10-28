@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_title }}{% endblock %} · cije-vpsinstallerweb</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <a class="brand" href="/">
+        <span class="mark">CIJE</span>
+        <span class="brand-text">
+          <strong>VPS Installer</strong>
+          <small>web UI</small>
+        </span>
+      </a>
+      <nav>
+        <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+        <a href="/wizard" class="{% if request.url.path == '/wizard' %}active{% endif %}">Setup wizard</a>
+        <a href="/logs" class="{% if request.url.path == '/logs' %}active{% endif %}">Live logs</a>
+        <a href="/status" class="{% if request.url.path == '/status' %}active{% endif %}">Status &amp; report</a>
+        <a href="/dns" class="{% if request.url.path == '/dns' %}active{% endif %}">DNS helper</a>
+        <a href="/troubleshoot" class="{% if request.url.path == '/troubleshoot' %}active{% endif %}">Troubleshoot</a>
+        <a href="/backup" class="{% if request.url.path == '/backup' %}active{% endif %}">Backup</a>
+      </nav>
+      <div class="rail-foot">
+        <div class="mode-chip {% if live_mode %}live{% else %}dry{% endif %}">
+          {% if live_mode %}LIVE system{% else %}dry-run / fake-root{% endif %}
+        </div>
+        <form method="post" action="/logout">
+          <button type="submit" class="linkish">Sign out</button>
+        </form>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="top">
+        <div>
+          <h1>{% block heading %}{{ app_title }}{% endblock %}</h1>
+          <p class="lede">{% block lede %}Browser UI for the Cije VPS Installer CLI.{% endblock %}</p>
+        </div>
+        <div class="top-meta">
+          <span class="pill">cije-vpsinstallerweb {{ version }}</span>
+          <span class="pill muted">CLI {{ choices.cli_version }}</span>
+        </div>
+      </header>
+      <div class="banner {% if live_mode %}danger{% else %}ok{% endif %}">
+        {% if live_mode %}
+          This process is allowed to run <strong>apt</strong> and <strong>systemctl</strong> on this host.
+          Only use that on the target Debian VPS after reading the README.
+        {% else %}
+          Live installs are disabled. Jobs use <strong>dry-run</strong> and a fake <code>--root</code>
+          at <code>{{ install_root }}</code>. This will not change the host package set.
+        {% endif %}
+      </div>
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Backup{% endblock %}
+{% block heading %}Config snapshots{% endblock %}
+{% block lede %}Installer-owned files only — not a disk image. Uses debian_vps_setup.modules.backup.{% endblock %}
+{% block content %}
+<section class="card">
+  <p class="hint">{{ backups.note }}</p>
+  <div class="row">
+    <button class="primary" id="take-backup">Take snapshot</button>
+  </div>
+  {% if backups.snapshots %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Id</th><th>Reason</th><th>Domain</th><th>Files</th><th></th></tr></thead>
+        <tbody>
+          {% for snap in backups.snapshots %}
+            <tr>
+              <td><code>{{ snap.name }}</code></td>
+              <td>{{ snap.reason }}</td>
+              <td>{{ snap.domain or "—" }}</td>
+              <td>{{ snap.copied }}</td>
+              <td><button data-restore="{{ snap.name }}">Restore</button></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No snapshots under the current install root yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById("take-backup").addEventListener("click", async () => {
+    const res = await Cije.api("/api/backup", { method: "POST", body: {} });
+    if (!res.body.ok) return Cije.flash(res.body.detail || "Backup did not start");
+    location.href = "/logs?job=" + res.body.job.id;
+  });
+  document.querySelectorAll("[data-restore]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const name = btn.getAttribute("data-restore");
+      if (!confirm("Restore installer-managed files from " + name + "?")) return;
+      const res = await Cije.api("/api/backup/" + encodeURIComponent(name) + "/restore", { method: "POST", body: {} });
+      if (!res.body.ok) return Cije.flash(res.body.detail || "Restore did not start");
+      location.href = "/logs?job=" + res.body.job.id;
+    });
+  });
+</script>
+{% endblock %}

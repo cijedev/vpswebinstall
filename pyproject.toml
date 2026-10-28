@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cije-vpsinstallerweb"
+version = "0.1.0"
+description = "Web UI for the Cije VPS Installer (vendored debian_vps_setup)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Cije" }]
+keywords = ["cije", "vps", "installer", "webmin", "virtualmin", "1panel"]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = ["httpx>=0.27"]
+
+[project.scripts]
+cije-vpsinstallerweb = "cije_vpsinstallerweb.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = [".", "vendor"]
+include = ["cije_vpsinstallerweb*", "debian_vps_setup*"]
+
+[tool.setuptools.package-data]
+cije_vpsinstallerweb = ["templates/*", "static/*"]
+
+[tool.unittest]
+# python -m unittest discover -s tests -v

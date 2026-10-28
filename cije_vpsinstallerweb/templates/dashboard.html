@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block lede %}Start or resume a setup, then watch logs, DNS, troubleshoot, and backups.{% endblock %}
+{% block content %}
+<section class="grid two">
+  <article class="card">
+    <h2>This VPS plan</h2>
+    <dl class="kv">
+      <div><dt>Domain</dt><dd>{{ public.domain or "not set" }}</dd></div>
+      <div><dt>Hostname</dt><dd>{{ public.hostname or "—" }}</dd></div>
+      <div><dt>Panel</dt><dd>{{ public.control_panel }}</dd></div>
+      <div><dt>Web stack</dt><dd>{{ public.web_bundle }}</dd></div>
+      <div><dt>Webmail</dt><dd>{{ public.webmail }}</dd></div>
+      <div><dt>SSL</dt><dd>{{ "Let's Encrypt" if public.ssl.enabled else "off" }}{% if public.ssl.staging %} (staging){% endif %}</dd></div>
+      <div><dt>VNC</dt><dd>{{ "on, display :" ~ public.vnc.display if public.vnc.enabled else "off" }}</dd></div>
+      <div><dt>Mailbaby</dt><dd>{{ public.mailbaby.username or "not configured" }}</dd></div>
+    </dl>
+    <div class="row">
+      <a class="primary" href="/wizard">Edit wizard</a>
+      <button class="primary" data-action="install">Start / resume (dry-run)</button>
+    </div>
+  </article>
+  <article class="card">
+    <h2>Installer status</h2>
+    <dl class="kv">
+      <div><dt>Started</dt><dd>{{ status.started_at or "never" }}</dd></div>
+      <div><dt>Finished</dt><dd>{{ status.finished_at or "no" }}</dd></div>
+      <div><dt>Last step</dt><dd>{{ status.last_step or "—" }}</dd></div>
+    </dl>
+    <h3>Completed steps</h3>
+    {% if status.completed %}
+      <ul class="chips">
+        {% for step in status.steps %}
+          <li class="{% if step in status.completed %}ok{% endif %}">{{ step }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">No completed steps yet. Run the wizard, then start an install.</p>
+    {% endif %}
+    <div class="row">
+      <a href="/status">Full report</a>
+      <a href="/logs">Live logs</a>
+    </div>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Last job</h2>
+  {% if latest_job %}
+    <p><strong>{{ latest_job.kind }}</strong> · {{ latest_job.status }} · {{ latest_job.started_at or "" }}</p>
+    <pre class="log mini" id="dash-log">{% for line in latest_job.lines[-12:] %}{{ line }}
+{% endfor %}</pre>
+  {% else %}
+    <p class="empty">No jobs in this process yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelector("[data-action=install]")?.addEventListener("click", async () => {
+    const res = await Cije.api("/api/install", { method: "POST", body: {} });
+    if (!res.ok && res.status === 409) return Cije.flash(res.body.detail || "A job is already running");
+    if (!res.body.ok) return Cije.flash((res.body.problems || [res.body.detail || "Install did not start"]).join("\\n"));
+    location.href = "/logs?job=" + res.body.job.id;
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Troubleshoot{% endblock %}
+{% block heading %}Troubleshoot{% endblock %}
+{% block lede %}Per-component checks from debian_vps_setup.modules.troubleshoot. Dry-run prints planned fixes only.{% endblock %}
+{% block content %}
+<section class="card">
+  <p class="hint">Failed checks would restart services, rewrite installer-owned snippets, then re-run that pipeline step. This UI will not apply live fixes unless <code>CIJE_WEB_ALLOW_LIVE=1</code>.</p>
+  <div class="chips pick" id="components">
+    <label><input type="checkbox" value="all" checked> all</label>
+    {% for name in choices.components %}
+      <label><input type="checkbox" value="{{ name }}"> {{ name }}</label>
+    {% endfor %}
+  </div>
+  <div class="row">
+    <button class="primary" id="run-ts">Run troubleshoot</button>
+    <button id="run-test">Re-test only</button>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const boxes = [...document.querySelectorAll("#components input")];
+  const all = boxes.find(b => b.value === "all");
+  all.addEventListener("change", () => {
+    if (all.checked) boxes.filter(b => b !== all).forEach(b => b.checked = false);
+  });
+  boxes.filter(b => b !== all).forEach(b => b.addEventListener("change", () => {
+    if (b.checked) all.checked = false;
+  }));
+  document.getElementById("run-ts").addEventListener("click", async () => {
+    const selected = boxes.filter(b => b.checked).map(b => b.value);
+    const components = selected.includes("all") || selected.length === 0 ? ["all"] : selected;
+    const res = await Cije.api("/api/troubleshoot", { method: "POST", body: { components } });
+    if (!res.body.ok) return Cije.flash(res.body.detail || (res.body.problems || ["failed"]).join("\\n"));
+    location.href = "/logs?job=" + res.body.job.id;
+  });
+  document.getElementById("run-test").addEventListener("click", async () => {
+    const res = await Cije.api("/api/test", { method: "POST", body: {} });
+    if (!res.body.ok) return Cije.flash(res.body.detail || (res.body.problems || ["failed"]).join("\\n"));
+    location.href = "/logs?job=" + res.body.job.id;
+  });
+</script>
+{% endblock %}
